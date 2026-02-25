@@ -603,3 +603,27 @@ body {
     bottom: 70px;
   }
 }
+
+/* Talon (hidden cards) */
+.talon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px;
+}
+
+.talon-label {
+  font-size: 12px;
+  color: #ffd700;
+  margin-bottom: 4px;
+  font-weight: bold;
+}
+
+.talon-cards {
+  display: flex;
+  gap: 2px;
+}
+
+.talon-cards .card {
+  margin: 0;
+}

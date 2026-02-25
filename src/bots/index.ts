@@ -64,6 +64,32 @@ export class BotLevel1 {
     return 'pass'
   }
 
+  // Choose trump when dealer (everyone passed)
+  chooseDealerChoice(state: GameState): Suit {
+    const hand = state.players[this.playerId].hand
+    
+    // Find best suit in hand
+    const suits: Card['suit'][] = ['hearts', 'diamonds', 'clubs', 'spades']
+    let bestSuit: Card['suit'] = 'hearts'
+    let maxStrength = 0
+    
+    for (const suit of suits) {
+      const suitCards = hand.filter(c => c.suit === suit)
+      let strength = 0
+      for (const card of suitCards) {
+        const rankIdx = getRankIndex(card.rank)
+        strength += rankIdx
+      }
+      
+      if (strength > maxStrength) {
+        maxStrength = strength
+        bestSuit = suit
+      }
+    }
+    
+    return bestSuit
+  }
+
   // Choose a card to play
   chooseMove(state: GameState): BotMove {
     const hand = state.players[this.playerId].hand
@@ -243,6 +269,12 @@ export class BotLevel2 {
     }
     
     return 'pass'
+  }
+
+  // Choose trump when dealer (everyone passed)
+  chooseDealerChoice(state: GameState): Suit {
+    const hand = state.players[this.playerId].hand
+    return this.findBestSuit(hand) || 'hearts'
   }
 
   // Choose a card to play - uses simulation

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { GameState, PlayerId, Card, TrumpCall, Phase, TeamId, Suit, SUIT_SYMBOLS, RANK_ORDER, getRankIndex, getPlayerTeam, PLAYER_ORDER, getNextPlayer } from './engine/types'
-import { createInitialState, legalMoves, applyMove, applyBid, applyPass, endOfHandScoring } from './engine/rules'
+import { createInitialState, legalMoves, applyMove, applyBid, applyPass, applyDealerChoice, endOfHandScoring } from './engine/rules'
 import { createBot, BotLevel } from './bots'
 import { getHint, analyzeGame, computeGameScore } from './analysis'
 
@@ -245,6 +245,20 @@ const App: React.FC = () => {
         return () => clearTimeout(timeout)
       }
     }
+    
+    // Handle dealer choice for bots
+    if (gameState.phase === 'dealerChoice' && gameState.currentPlayer !== 'south') {
+      const bot = bots[gameState.currentPlayer]
+      if (bot) {
+        const timeout = setTimeout(() => {
+          const suit = bot.chooseDealerChoice(gameState)
+          const newState = applyDealerChoice(gameState, suit)
+          setGameState(newState)
+        }, 600)
+        
+        return () => clearTimeout(timeout)
+      }
+    }
   }, [gameState.phase, gameState.currentPlayer, bots])
   
   // Handle new game
@@ -289,6 +303,18 @@ Blunders: ${analysisResult.blunders}`
     setGameState(newState)
   }, [gameState])
   
+  // Handle dealer choice (when everyone passes)
+  const handleDealerChoice = useCallback((suit: Suit) => {
+    if (gameState.phase !== 'dealerChoice') return
+    if (gameState.currentPlayer !== 'south') return
+    
+    setError(null)
+    setHint(null)
+    
+    const newState = applyDealerChoice(gameState, suit)
+    setGameState(newState)
+  }, [gameState])
+  
   // Handle bid
   const handleBid = useCallback((suit: Suit) => {
     if (gameState.phase !== 'bidding') return
@@ -323,7 +349,12 @@ Blunders: ${analysisResult.blunders}`
       case 'deal':
         return 'Dealing cards...'
       case 'bidding':
+        if (gameState.talon && gameState.talon.length > 0) {
+          return gameState.currentPlayer === 'south' ? 'Your turn - choose trump and take talon!' : `${gameState.players[gameState.currentPlayer].name}'s turn to choose trump`
+        }
         return gameState.currentPlayer === 'south' ? 'Your turn to bid' : `${gameState.players[gameState.currentPlayer].name}'s turn to bid`
+      case 'dealerChoice':
+        return gameState.currentPlayer === 'south' ? 'Everyone passed - choose trump (no talon)' : `${gameState.players[gameState.currentPlayer].name} must choose trump`
       case 'play':
         return gameState.currentPlayer === 'south' ? 'Your turn to play' : `${gameState.players[gameState.currentPlayer].name}'s turn to play`
       case 'scoring':
@@ -363,6 +394,18 @@ Blunders: ${analysisResult.blunders}`
         />
         
         <div className="table-row top-row">
+          {/* Talon - hidden cards */}
+          {gameState.talon && gameState.talon.length > 0 && (
+            <div className="talon">
+              <div className="talon-label">Talon ({gameState.talon.length})</div>
+              <div className="talon-cards">
+                {gameState.talon.map((card, i) => (
+                  <CardView key={i} card={card} small hidden={gameState.phase !== 'play' && gameState.phase !== 'dealerChoice'} />
+                ))}
+              </div>
+            </div>
+          )}
+          
           {/* West player */}
           <PlayerSeat
             position="west"
@@ -445,6 +488,23 @@ Blunders: ${analysisResult.blunders}`
               ))}
             </div>
             <button className="btn btn-pass" onClick={handlePass}>Pass</button>
+          </>
+        )}
+        
+        {gameState.phase === 'dealerChoice' && gameState.currentPlayer === 'south' && (
+          <>
+            <div className="bid-buttons">
+              <span style={{color: '#ffd700', marginRight: '10px'}}>Choose Trump (no talon):</span>
+              {['hearts', 'diamonds', 'clubs', 'spades'].map(suit => (
+                <button
+                  key={suit}
+                  className={`btn btn-bid ${suit}`}
+                  onClick={() => handleDealerChoice(suit as Suit)}
+                >
+                  {SUIT_SYMBOLS[suit as Suit]} {suit}
+                </button>
+              ))}
+            </div>
           </>
         )}
         

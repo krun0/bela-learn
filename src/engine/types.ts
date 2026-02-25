@@ -24,7 +24,7 @@ export interface Player {
   isDeclarer: boolean
 }
 
-export type Phase = 'deal' | 'bidding' | 'play' | 'scoring' | 'gameOver'
+export type Phase = 'deal' | 'bidding' | 'dealerChoice' | 'play' | 'scoring' | 'gameOver'
 
 export interface Trick {
   cards: { playerId: PlayerId; card: Card }[]
@@ -81,6 +81,7 @@ export interface GameState {
   events: GameEvent[]
   config: GameConfig
   dealer: PlayerId
+  talon: Card[]  // The 2 hidden cards (talon)
 }
 
 export interface Decision {

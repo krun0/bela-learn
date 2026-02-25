@@ -90,7 +90,7 @@ export function createInitialState(config: Partial<GameConfig> = {}): GameState 
   const deck = generateDeck()
   const hands = dealCards([...deck]) // Copy deck before dealing
   
-  // Remove dealt cards from deck
+  // Remove dealt cards from deck - remaining are talon (last 2)
   const remainingDeck: Card[] = []
   const dealtCards = new Set<string>()
   for (const player of PLAYER_ORDER) {
@@ -104,11 +104,14 @@ export function createInitialState(config: Partial<GameConfig> = {}): GameState 
     }
   }
   
+  // Last 2 cards are talon (hidden)
+  const talon = remainingDeck.slice(-2)
+  
   const dealer: PlayerId = 'south'
   
   return {
     phase: 'bidding',
-    deck: remainingDeck,
+    deck: remainingDeck.slice(0, -2), // Deck without talon
     players: {
       north: { id: 'north', name: 'North', team: 'team1', hand: hands.north, isDeclarer: false },
       east: { id: 'east', name: 'East', team: 'team2', hand: hands.east, isDeclarer: false },
@@ -127,7 +130,8 @@ export function createInitialState(config: Partial<GameConfig> = {}): GameState 
     matchScores: { team1: 0, team2: 0 },
     events: [],
     config: fullConfig,
-    dealer
+    dealer,
+    talon
   }
 }
 
@@ -535,12 +539,16 @@ export function endOfHandScoring(state: GameState): {
   }
 }
 
-// Apply a bid
+// Apply a bid - player takes talon (2 hidden cards) and declares trump
 export function applyBid(state: GameState, bid: TrumpCall): GameState {
   const newState = JSON.parse(JSON.stringify(state)) as GameState
   
   newState.bids.push(bid)
   newState.currentBid = bid
+  newState.declarer = bid.playerId
+  newState.trump = bid.suit
+  newState.players[bid.playerId].isDeclarer = true
+  
   newState.events.push({
     id: `event_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     type: 'bid',
@@ -549,10 +557,29 @@ export function applyBid(state: GameState, bid: TrumpCall): GameState {
     data: bid
   })
   
+  // Player takes talon (2 hidden cards) into their hand
+  if (newState.talon && newState.talon.length > 0) {
+    const player = newState.players[bid.playerId]
+    player.hand.push(...newState.talon)
+    newState.talon = [] // Clear talon
+  }
+  
+  // Move to play phase
+  newState.phase = 'play'
+  newState.currentPlayer = bid.playerId
+  
+  // Check for declarations
+  if (newState.config.declarationsEnabled) {
+    for (const player of PLAYER_ORDER) {
+      const playerDecls = checkDeclarations(newState, player)
+      newState.declarations.push(...playerDecls)
+    }
+  }
+  
   return newState
 }
 
-// Apply a pass
+// Apply a pass - player passes, next player can take talon
 export function applyPass(state: GameState, playerId: PlayerId): GameState {
   const newState = JSON.parse(JSON.stringify(state)) as GameState
   
@@ -564,38 +591,69 @@ export function applyPass(state: GameState, playerId: PlayerId): GameState {
     data: null
   })
   
-  // Check if bidding is over (3 passes after a bid)
-  if (newState.currentBid) {
-    const lastActions = newState.events.slice(-4)
-    const passes = lastActions.filter(e => e.type === 'pass').length
-    
-    if (passes >= 3) {
-      // Bidding complete
-      newState.trump = newState.currentBid.suit
-      newState.declarer = newState.currentBid.playerId
-      newState.players[newState.declarer].isDeclarer = true
-      newState.phase = 'play'
-      newState.currentPlayer = getNextPlayer(newState.dealer)
+  // Check if talon is available (not yet taken)
+  if (newState.talon && newState.talon.length > 0) {
+    // Talon still available - pass to next player who can take it
+    const nextPlayer = getNextPlayer(playerId)
+    newState.currentPlayer = nextPlayer
+  } else {
+    // Talon already taken
+    if (newState.currentBid) {
+      const lastActions = newState.events.slice(-4)
+      const passes = lastActions.filter(e => e.type === 'pass').length
       
-      // Check for declarations
-      if (newState.config.declarationsEnabled) {
-        for (const player of PLAYER_ORDER) {
-          const playerDecls = checkDeclarations(newState, player)
-          newState.declarations.push(...playerDecls)
-        }
+      if (passes >= 3) {
+        // Bidding complete
+        newState.phase = 'play'
+        newState.currentPlayer = getNextPlayer(newState.dealer)
+      } else {
+        newState.currentPlayer = getNextPlayer(playerId)
       }
     } else {
-      // Next bidder
-      newState.currentPlayer = getNextPlayer(playerId)
+      // No bid yet - check if all passed
+      const passes = newState.events.filter(e => e.type === 'pass').length
+      if (passes >= 3) {
+        // All passed - dealer must set trump (no talon)
+        newState.currentPlayer = newState.dealer
+        newState.phase = 'dealerChoice'
+      } else {
+        newState.currentPlayer = getNextPlayer(playerId)
+      }
     }
-  } else {
-    // First round of bidding - check if all passed
-    const passes = newState.events.filter(e => e.type === 'pass').length
-    if (passes >= 3) {
-      // All passed - redeal
-      return createInitialState(newState.config)
+  }
+  
+  return newState
+}
+
+// Dealer chooses trump when everyone passes (no talon)
+export function applyDealerChoice(state: GameState, suit: Suit): GameState {
+  const newState = JSON.parse(JSON.stringify(state)) as GameState
+  
+  const bid: TrumpCall = { playerId: newState.dealer, suit, level: 1 }
+  newState.bids.push(bid)
+  newState.currentBid = bid
+  newState.declarer = newState.dealer
+  newState.trump = suit
+  newState.players[newState.dealer].isDeclarer = true
+  
+  newState.events.push({
+    id: `event_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    type: 'bid',
+    timestamp: Date.now(),
+    playerId: newState.dealer,
+    data: bid
+  })
+  
+  // No talon - dealer keeps their 8 cards
+  newState.phase = 'play'
+  newState.currentPlayer = newState.dealer
+  
+  // Check for declarations
+  if (newState.config.declarationsEnabled) {
+    for (const player of PLAYER_ORDER) {
+      const playerDecls = checkDeclarations(newState, player)
+      newState.declarations.push(...playerDecls)
     }
-    newState.currentPlayer = getNextPlayer(playerId)
   }
   
   return newState
