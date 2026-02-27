@@ -141,7 +141,11 @@ export const SUIT_SYMBOLS: Record<Suit, string> = {
 
 export const RANK_ORDER: Rank[] = ['7', '8', '9', '10', 'J', 'Q', 'K', 'A']
 
-export const PLAYER_ORDER: PlayerId[] = ['north', 'east', 'south', 'west']
+// Counter-clockwise order: North → West → South → East
+export const PLAYER_ORDER: PlayerId[] = ['north', 'west', 'south', 'east']
+
+// Visual order for UI (clockwise around table)
+export const PLAYER_POSITIONS: PlayerId[] = ['north', 'east', 'south', 'west']
 
 export function getRankIndex(rank: Rank): number {
   return RANK_ORDER.indexOf(rank)

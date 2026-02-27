@@ -165,15 +165,23 @@ const HintPanel: React.FC<{
   )
 }
 
+// Random bot names
+const BOT_NAMES = ['Alex', 'Boris', 'Csaba', 'Dani', 'Erik', 'Feri', 'Gábor', 'Henrik', 'István', 'János', 'Károly', 'Laci', 'Márk', 'Norbi', 'Ottó', 'Péter']
+function getRandomBotName(): string {
+  return BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)]
+}
+
 // Main App component
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(() => createInitialState())
-  const [bots] = useState<Record<PlayerId, BotLevel>>({
-    north: createBot('north', 1, 'North Bot'),
-    east: createBot('east', 1, 'East Bot'),
-    west: createBot('west', 1, 'West Bot'),
-    south: createBot('south', 1, 'Player')
-  })
+  const [showLastTrick, setShowLastTrick] = useState<boolean>(false)
+  const [lastTrickData, setLastTrickData] = useState<{ cards: { playerId: PlayerId; card: Card }[]; winner: PlayerId } | null>(null)
+  const [bots] = useState<Record<PlayerId, BotLevel>>(() => ({
+    north: createBot('north', 1, getRandomBotName()),
+    east: createBot('east', 1, getRandomBotName()),
+    west: createBot('west', 1, getRandomBotName()),
+    south: createBot('south', 1, 'You')
+  }))
   const [hint, setHint] = useState<{ card: Card; explanation: string } | null>(null)
   const [analysis, setAnalysis] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -214,11 +222,24 @@ const App: React.FC = () => {
       if (bot) {
         const move = bot.chooseMove(gameState)
         
-        // Delay for visual effect
+        // Delay for visual effect - 2 seconds
         const timeout = setTimeout(() => {
           const newState = applyMove(gameState, { playerId: gameState.currentPlayer, card: move.card })
           setGameState(newState)
-        }, 800)
+          
+          // If trick is complete, show it for 5 seconds
+          if (newState.currentTrick.cards.length === 0 && newState.tricks.length > gameState.tricks.length) {
+            const completedTrick = newState.tricks[newState.tricks.length - 1]
+            if (completedTrick.winner) {
+              setLastTrickData({ cards: completedTrick.cards, winner: completedTrick.winner })
+              setShowLastTrick(true)
+              setTimeout(() => {
+                setShowLastTrick(false)
+                setLastTrickData(null)
+              }, 5000)
+            }
+          }
+        }, 2000)
         
         return () => clearTimeout(timeout)
       }
