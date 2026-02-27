@@ -413,30 +413,27 @@ body {
 
 /* Card */
 .card {
-  width: var(--card-width);
-  height: var(--card-height);
+  width: 91px;
+  height: 146px;
   background: var(--card-bg);
   border-radius: var(--card-radius);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 6px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   position: relative;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   user-select: none;
+  border: 2px solid white;
 }
 
 .card-back {
-  background: linear-gradient(135deg, #1a365d 25%, #2d3748 25%, #2d3748 50%, #1a365d 50%, #1a365d 75%, #2d3748 75%);
-  background-size: 10px 10px;
+  background: url(/cards/back.png);
+  background-size: cover;
+  background-position: center;
   border: 2px solid white;
 }
 
 .card-small {
-  width: 50px;
-  height: 70px;
-  padding: 4px;
+  width: 60px;
+  height: 96px;
 }
 
 .card-highlighted {

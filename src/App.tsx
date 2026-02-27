@@ -1,11 +1,38 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { GameState, PlayerId, Card, TrumpCall, Phase, TeamId, Suit, SUIT_SYMBOLS, RANK_ORDER, getRankIndex, getPlayerTeam, PLAYER_ORDER, getNextPlayer } from './engine/types'
+import { GameState, PlayerId, Card, TrumpCall, Phase, TeamId, Suit, SUIT_SYMBOLS, RANK_ORDER, getRankIndex, getPlayerTeam, PLAYER_ORDER, getNextPlayer, SUIT_NAMES_HU } from './engine/types'
 import { createInitialState, legalMoves, applyMove, applyBid, applyPass, applyDealerChoice, endOfHandScoring } from './engine/rules'
 import { createBot, BotLevel } from './bots'
 import { getHint, analyzeGame, computeGameScore } from './analysis'
 
 // Player positions
 const POSITIONS = ['north', 'east', 'south', 'west'] as const
+
+// Map Bela suits to Hungarian card names
+const SUIT_TO_HUNGARIAN: Record<Suit, string> = {
+  hearts: 'heart',   // Piros
+  diamonds: 'bell',  // Káró
+  clubs: 'acorn',    // Zöld
+  spades: 'leaf'     // Pikk
+}
+
+// Map rank to Hungarian card filename
+const RANK_TO_HUNGARIAN: Record<string, string> = {
+  '7': 'seven',
+  '8': 'eight',
+  '9': 'nine',
+  '10': 'ten',
+  'J': 'unter',
+  'Q': 'ober',
+  'K': 'king',
+  'A': 'ace'
+}
+
+// Get Hungarian card image URL
+function getCardImageUrl(card: Card): string {
+  const suitName = SUIT_TO_HUNGARIAN[card.suit]
+  const rankName = RANK_TO_HUNGARIAN[card.rank]
+  return `/cards/${suitName}-${rankName}.png`
+}
 
 // Component for a single card
 const CardView: React.FC<{
@@ -23,12 +50,12 @@ const CardView: React.FC<{
       <div
         className={`card card-back ${small ? 'card-small' : ''}`}
         onClick={onClick}
-        style={{ cursor: onClick ? 'pointer' : 'default' }}
+        style={{ cursor: onClick ? 'pointer' : 'default', backgroundImage: 'url(/cards/back.png)', backgroundSize: 'cover' }}
       />
     )
   }
   
-  const isRed = card.suit === 'hearts' || card.suit === 'diamonds'
+  const cardImageUrl = getCardImageUrl(card)
   
   return (
     <div
@@ -39,22 +66,13 @@ const CardView: React.FC<{
       style={{
         cursor: onClick ? 'pointer' : 'default',
         transform: isHovered && onClick ? 'translateY(-10px)' : undefined,
-        color: isRed ? '#e53e3e' : '#1a202c',
         borderColor: playable ? '#48bb78' : highlighted ? '#ed8936' : undefined,
-        boxShadow: playable ? '0 0 8px #48bb78' : undefined
+        boxShadow: playable ? '0 0 8px #48bb78' : undefined,
+        backgroundImage: `url(${cardImageUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
       }}
     >
-      <div className="card-corner top-left">
-        <span>{card.rank}</span>
-        <span>{SUIT_SYMBOLS[card.suit]}</span>
-      </div>
-      <div className="card-center">
-        <span>{SUIT_SYMBOLS[card.suit]}</span>
-      </div>
-      <div className="card-corner bottom-right">
-        <span>{card.rank}</span>
-        <span>{SUIT_SYMBOLS[card.suit]}</span>
-      </div>
     </div>
   )
 }
@@ -94,11 +112,11 @@ const ScoreBoard: React.FC<{
         <div className="score-title">Contract</div>
         {trump ? (
           <div className="trump-indicator">
-            Trump: <span className="trump-suit">{SUIT_SYMBOLS[trump]}</span> {trump}
+            Trump: <span className="trump-suit">{SUIT_SYMBOLS[trump]}</span> {SUIT_NAMES_HU[trump]}
             {declarer && <span className="declarer"> (Declarer: {declarer})</span>}
           </div>
         ) : (
-          <div className="no-trump">Bidding in progress...</div>
+          <div className="no-trump">Licitálás folyamatban...</div>
         )}
       </div>
     </div>
@@ -368,20 +386,20 @@ Blunders: ${analysisResult.blunders}`
   const getPhaseMessage = () => {
     switch (gameState.phase) {
       case 'deal':
-        return 'Dealing cards...'
+        return 'Lapok osztása...'
       case 'bidding':
         if (gameState.talon && gameState.talon.length > 0) {
-          return gameState.currentPlayer === 'south' ? 'Your turn - choose trump and take talon!' : `${gameState.players[gameState.currentPlayer].name}'s turn to choose trump`
+          return gameState.currentPlayer === 'south' ? 'Te jössz - válassz trump-ot és vedd fel a talont!' : `${gameState.players[gameState.currentPlayer].name} trump-ot választ`
         }
-        return gameState.currentPlayer === 'south' ? 'Your turn to bid' : `${gameState.players[gameState.currentPlayer].name}'s turn to bid`
+        return gameState.currentPlayer === 'south' ? 'Te jössz - licitálj!' : `${gameState.players[gameState.currentPlayer].name} licitál`
       case 'dealerChoice':
-        return gameState.currentPlayer === 'south' ? 'Everyone passed - choose trump (no talon)' : `${gameState.players[gameState.currentPlayer].name} must choose trump`
+        return gameState.currentPlayer === 'south' ? 'Mindenki passzolt - válassz trump-ot (nincs talon)' : `${gameState.players[gameState.currentPlayer].name} trump-ot kell válasszon`
       case 'play':
-        return gameState.currentPlayer === 'south' ? 'Your turn to play' : `${gameState.players[gameState.currentPlayer].name}'s turn to play`
+        return gameState.currentPlayer === 'south' ? 'Te jössz - játssz lapot!' : `${gameState.players[gameState.currentPlayer].name} játék`
       case 'scoring':
-        return 'Hand complete! Calculating scores...'
+        return 'A kör vége! Pontok számolása...'
       case 'gameOver':
-        return 'Game Over!'
+        return 'A játék vége!'
       default:
         return ''
     }
@@ -392,7 +410,7 @@ Blunders: ${analysisResult.blunders}`
       <header className="header">
         <h1>♠️ BelaLearn - Bela (Belote)</h1>
         <div className="header-controls">
-          <button className="btn btn-primary" onClick={handleNewGame}>New Game</button>
+          <button className="btn btn-primary" onClick={handleNewGame}>Új játék</button>
         </div>
       </header>
       
@@ -418,7 +436,7 @@ Blunders: ${analysisResult.blunders}`
           {/* Talon - hidden cards */}
           {gameState.talon && gameState.talon.length > 0 && (
             <div className="talon">
-              <div className="talon-label">Talon ({gameState.talon.length})</div>
+              <div className="talon-label">Talon ({gameState.talon.length} lap)</div>
               <div className="talon-cards">
                 {gameState.talon.map((card, i) => (
                   <CardView key={i} card={card} small hidden={gameState.phase !== 'play' && gameState.phase !== 'dealerChoice'} />
@@ -504,25 +522,25 @@ Blunders: ${analysisResult.blunders}`
                   className={`btn btn-bid ${suit}`}
                   onClick={() => handleBid(suit as Suit)}
                 >
-                  {SUIT_SYMBOLS[suit as Suit]} {suit}
+                  {SUIT_SYMBOLS[suit as Suit]} {SUIT_NAMES_HU[suit as Suit]}
                 </button>
               ))}
             </div>
-            <button className="btn btn-pass" onClick={handlePass}>Pass</button>
+            <button className="btn btn-pass" onClick={handlePass}>Passz</button>
           </>
         )}
         
         {gameState.phase === 'dealerChoice' && gameState.currentPlayer === 'south' && (
           <>
             <div className="bid-buttons">
-              <span style={{color: '#ffd700', marginRight: '10px'}}>Choose Trump (no talon):</span>
+              <span style={{color: '#ffd700', marginRight: '10px'}}>Válassz trump-ot (nincs talon):</span>
               {['hearts', 'diamonds', 'clubs', 'spades'].map(suit => (
                 <button
                   key={suit}
                   className={`btn btn-bid ${suit}`}
                   onClick={() => handleDealerChoice(suit as Suit)}
                 >
-                  {SUIT_SYMBOLS[suit as Suit]} {suit}
+                  {SUIT_SYMBOLS[suit as Suit]} {SUIT_NAMES_HU[suit as Suit]}
                 </button>
               ))}
             </div>
@@ -530,14 +548,14 @@ Blunders: ${analysisResult.blunders}`
         )}
         
         {gameState.phase === 'play' && gameState.currentPlayer === 'south' && (
-          <button className="btn btn-hint" onClick={handleHint}>💡 Hint</button>
+          <button className="btn btn-hint" onClick={handleHint}>💡 Segítség</button>
         )}
         
         {gameState.phase === 'scoring' && (
-          <button className="btn btn-analysis" onClick={handleAnalysis}>📊 Analysis</button>
+          <button className="btn btn-analysis" onClick={handleAnalysis}>📊 Elemzés</button>
         )}
         
-        <button className="btn btn-secondary" onClick={handleNewGame}>New Game</button>
+        <button className="btn btn-secondary" onClick={handleNewGame}>Új játék</button>
       </div>
       
       {(hint || analysis) && (

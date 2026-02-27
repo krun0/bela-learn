@@ -133,10 +133,30 @@ export const TRUMP_CARD_VALUES: Record<Rank, number> = {
 }
 
 export const SUIT_SYMBOLS: Record<Suit, string> = {
-  hearts: '♥',
-  diamonds: '♦',
-  clubs: '♣',
-  spades: '♠'
+  hearts: '♥',   // Piros (red)
+  diamonds: '♦', // Káró (red)
+  clubs: '♣',    // Zöld (green) - could use ☘
+  spades: '♠'    // Pikk (black)
+}
+
+// Hungarian suit names
+export const SUIT_NAMES_HU: Record<Suit, string> = {
+  hearts: 'Piros',
+  diamonds: 'Káró', 
+  clubs: 'Zöld',
+  spades: 'Pikk'
+}
+
+// Hungarian rank names
+export const RANK_NAMES_HU: Record<Rank, string> = {
+  '7': '7',
+  '8': '8', 
+  '9': '9',
+  '10': '10',
+  'J': 'J',
+  'Q': 'Q',
+  'K': 'K',
+  'A': 'A'
 }
 
 export const RANK_ORDER: Rank[] = ['7', '8', '9', '10', 'J', 'Q', 'K', 'A']
